@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MOODTALES:MOOD ADAPTIVE INTERFACE</title>
+    <style>
+        /* --- RESET & BASE --- */
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', sans-serif; }
+        
+        body {
+            min-height: 100vh; overflow-x: hidden; color: white; cursor: auto;
+            background: linear-gradient(-45deg, #070a24, #0b0f35, #1a1f6a, #0b0f35);
+            background-size: 400% 400%; animation: gradientMove 12s ease infinite;
+        }
+
+        @keyframes gradientMove { 0%{background-position:0% 50%} 50%{background-position:100% 50%} 100%{background-position:0% 50%} }
+        
+        canvas { position: fixed; top: 0; left: 0; z-index: -1; }
+
+        /* --- UI ELEMENTS --- */
+        nav { display: flex; justify-content: center; padding: 40px; position: relative; }
+        .logo { 
+        font-size: 32px; 
+        font-weight: 800; 
+        color: #9b8cff; 
+        text-transform: uppercase; 
+        letter-spacing: 4px;
+        text-shadow: 0 0 20px rgba(155, 140, 255, 0.5);
+        }
+        /* --- CURSOR GLOW --- */
+        .cursor-glow {
+            position: fixed; width: 140px; height: 140px; border-radius: 50%; pointer-events: none;
+            background: radial-gradient(circle, rgba(255,255,255,0.4) 0%, transparent 75%);
+            filter: blur(35px); transform: translate(-50%,-50%); z-index: 999; opacity: 0; transition: opacity .4s ease;
+        }
+
+        /* --- SIDEBAR STYLING --- */
+        .sidebar-panel {
+            position: fixed; left: -300px; top: 0; width: 250px; height: 100%;
+            background: rgba(16, 19, 58, 0.95); backdrop-filter: blur(15px);
+            z-index: 1001; transition: 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            border-right: 1px solid rgba(255, 255, 255, 0.1); padding: 20px;
+        }
+        .sidebar-panel.open { left: 0; }
+        .sidebar-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 10px; }
+        .user-display { color: #9b8cff; font-weight: bold; font-size: 18px; }
+        .close-sidebar { background: none; border: none; color: white; font-size: 24px; cursor: pointer; }
+        .sidebar-section { margin-bottom: 25px; }
+        .sidebar-section h4 { font-size: 11px; color: rgba(255,255,255,0.4); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px; }
+        .log-content { background: rgba(0,0,0,0.2); padding: 10px; border-radius: 8px; font-size: 14px; min-height: 40px; color: #e0e0e0; }
+        .mood-tag { display: inline-block; background: #6b5cff; color: white; padding: 2px 8px; border-radius: 4px; margin: 3px; font-size: 12px; }
+        .sidebar-toggle-btn { position: fixed; left: 20px; top: 20px; z-index: 1000; background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255,255,255,0.1); color: white; padding: 8px 12px; border-radius: 8px; cursor: pointer; }
+
+        /* --- LOGIN PAGE --- */
+        #loginPage { display: flex; justify-content: center; align-items: center; height: 80vh; }
+        .login-box { background: #10133a; padding: 40px; border-radius: 16px; text-align: center; box-shadow: 0 0 25px rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.1); }
+        .login-box input { padding: 12px; border: none; border-radius: 8px; margin-top: 10px; width: 220px; background: rgba(255,255,255,0.1); color: white; outline: none; }
+        .login-box button { padding: 10px 25px; border-radius: 25px; border: none; cursor: pointer; background: #6b5cff; color: white; margin-top: 15px; font-weight: bold; }
+
+        /* --- HERO PAGE --- */
+        .hero { text-align: center; margin-top: 120px; padding: 20px; }
+        .tag { display: inline-block; background: rgba(255,255,255,0.1); padding: 6px 14px; border-radius: 20px; font-size: 13px; margin-bottom: 20px; }
+        .hero h1 { font-size: 44px; margin-bottom: 10px; }
+        .hero p { opacity: 0.8; max-width: 600px; margin: auto; margin-bottom: 40px; min-height: 30px; }
+
+        .search-box {
+            width: 650px; max-width: 90%; margin: auto; display: flex; align-items: center;
+            background: #10133a; border-radius: 16px; padding: 12px;
+            border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 0 20px rgba(140,120,255,0.25);
+        }
+        .search-box input { flex: 1; background: transparent; border: none; outline: none; color: white; padding: 10px; font-size: 16px; }
+        .search-btn { background: linear-gradient(45deg, #6b5cff, #c66bff); color: white; font-size: 18px; border-radius: 12px; padding: 12px 16px; border: none; cursor: pointer; }
+
+        /* --- SLIDER STYLING --- */
+        .slider-container {
+            display: flex; align-items: center; background: #10133a; padding: 8px 20px; border-radius: 12px;
+            margin: 20px auto; width: 400px; max-width: 80%; border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 0 20px rgba(140, 120, 255, 0.25);
+        }
+        .slider { appearance: none; flex: 1; height: 4px; background: rgba(255, 255, 255, 0.1); outline: none; border-radius: 5px; cursor: pointer; }
+        .slider::-webkit-slider-thumb { appearance: none; width: 16px; height: 16px; background: linear-gradient(45deg, #6b5cff, #c66bff); border-radius: 50%; }
+        .value { margin-left: 1rem; color: #9b8cff; font-weight: bold; min-width: 30px; }
+
+        .suggestions { display: flex; justify-content: center; gap: 10px; margin-top: 15px; flex-wrap: wrap; }
+        .chip { background: rgba(255,255,255,0.08); padding: 6px 12px; border-radius: 20px; font-size: 13px; cursor: pointer; transition: .2s; }
+        .chip:hover { background: rgba(255,255,255,0.2); }
+
+        /* --- CHAT INTERFACE --- */
+        #chatPage { max-width: 800px; margin: 0 auto; padding: 20px; height: 90vh; display: flex; flex-direction: column; }
+        #chatHistory { flex: 1; overflow-y: auto; padding-bottom: 140px; scrollbar-width: none; scroll-behavior: smooth; }
+        
+        .message { margin-bottom: 25px; font-size: 18px; line-height: 1.6; max-width: 85%; position: relative; }
+        .user-msg { align-self: flex-end; background: rgba(255, 255, 255, 0.1); padding: 10px 20px; border-radius: 20px; margin-left: auto; }
+        .ai-msg { align-self: flex-start; color: #e0e0e0; white-space: pre-wrap; }
+
+        /* --- STACKED CHAT INPUT BAR --- */
+        .chat-input-wrapper { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); width: 90%; max-width: 750px; }
+        
+        .pill-bar {
+            background: rgba(20, 24, 60, 0.95); backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.1); border-radius: 35px;
+            display: flex; align-items: center; padding: 15px 25px; width: 100%;
+        }
+
+        .mic-btn { cursor: pointer; font-size: 18px; margin-right: 15px; opacity: 0.5; transition: 0.3s; }
+        .mic-active { color: #ff4b4b; opacity: 1; animation: voicePulse 1.5s infinite; }
+        @keyframes voicePulse { 0% { box-shadow: 0 0 0 0 rgba(255, 75, 75, 0.4); } 70% { box-shadow: 0 0 0 10px rgba(255, 75, 75, 0); } 100% { box-shadow: 0 0 0 0 rgba(255, 75, 75, 0); } }
+
+        .input-core { display: flex; flex-direction: column; flex: 1; gap: 8px; }
+
+        /* Inline Slider Above Placeholder */
+        .chat-slider-box { 
+            display: flex; align-items: center; background: rgba(0,0,0,0.3); 
+            padding: 4px 12px; border-radius: 15px; width: fit-content; 
+        }
+        .chat-slider-box .slider { width: 100px; margin: 0; }
+        .mini-label { font-size: 9px; opacity: 0.5; margin-right: 8px; font-weight: bold; }
+        .mini-value { font-size: 11px; color: #9b8cff; margin-left: 8px; font-weight: bold; }
+
+        #chatInput { background: transparent; border: none; outline: none; color: white; font-size: 16px; width: 100%; }
+
+        /* Action Button */
+        .action-btn {
+            width: 38px; height: 38px; background: white; border-radius: 50%;
+            display: flex; justify-content: center; align-items: center; cursor: pointer; margin-left: 15px; transition: all 0.3s;
+        }
+        .btn-stop { background: #ff4b4b !important; }
+        .stop-square { width: 10px; height: 10px; background: white; border-radius: 2px; }
+        .arrow-icon { color: black; font-weight: bold; font-size: 14px; }
+
+        /* WIDGET SIDEBAR */
+        .widget-sidebar {
+            position: fixed; right: 20px; top: 80px; display: flex; flex-direction: column; gap: 15px; z-index: 1000;
+        }
+        .widget-box {
+            background: rgba(16, 19, 58, 0.8); backdrop-filter: blur(10px);
+            border: 1px solid rgba(155, 140, 255, 0.3); padding: 15px; border-radius: 12px;
+            min-width: 150px; text-align: right; box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+        }
+        #clock { font-size: 24px; font-weight: bold; color: #9b8cff; font-family: 'Courier New', monospace; }
+        #date { font-size: 12px; opacity: 0.7; }
+        #temp { font-size: 20px; font-weight: bold; color: #ff9b8c; }
+        #desc { font-size: 12px; text-transform: capitalize; }
+        
+        .sidebar-btn {
+            width: 100%; padding: 12px; background: rgba(107, 92, 255, 0.2);
+            border: 1px solid rgba(107, 92, 255, 0.4); color: white; border-radius: 8px;
+            cursor: pointer; text-align: left; margin-bottom: 15px; transition: 0.3s; font-weight: bold;
+        }
+        .sidebar-btn:hover { background: rgba(107, 92, 255, 0.4); }
+
+        /* NARRATE BUTTON STYLE */
+        .narrate-btn {
+            background: linear-gradient(45deg, #6b5cff, #c66bff);
+            border: none; color: white; padding: 6px 12px; border-radius: 12px;
+            font-size: 12px; cursor: pointer; margin-top: 10px; display: inline-flex;
+            align-items: center; gap: 5px; transition: 0.3s;
+        }
+        .narrate-btn:hover { transform: scale(1.05); }
+        .narrate-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .delete-btn {
+            background: rgba(255, 75, 75, 0.1);
+            border: 1px solid rgba(255, 75, 75, 0.3);
+            color: #ff4b4b;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 10px;
+            cursor: pointer;
+            text-transform: uppercase;
+            transition: 0.3s;
+        }
+
+        .delete-btn:hover {
+            background: rgba(255, 75, 75, 0.3);
+            box-shadow: 0 0 10px rgba(255, 75, 75, 0.2);
+        }
+    </style>
+</head>
+<body>
+
+    <canvas id="particles"></canvas>
+    <div class="cursor-glow"></div>
+
+    <button class="sidebar-toggle-btn" onclick="toggleSidebar()">☰ Menu</button>
+
+    <div id="appSidebar" class="sidebar-panel">
+        <div class="sidebar-header">
+            <div id="sideUser" class="user-display">Guest</div>
+            <button onclick="toggleSidebar()" class="close-sidebar">×</button>
+        </div>
+        <div class="sidebar-section">
+            <button class="sidebar-btn" onclick="goHome()">🏠 Home</button>
+        </div>
+        <div class="sidebar-section">
+            <h4>🎤 Live Voice Transcript</h4>
+            <div id="liveVoiceLog" class="log-content">Waiting...</div>
+        </div>
+        <div class="sidebar-section">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                <h4>🎭 Mood History</h4>
+                <button onclick="clearMoodHistory()" class="delete-btn">Clear</button>
+            </div>
+            <div id="moodHistoryLog" class="log-content">No moods yet.</div>
+        </div>
+    </div>
+
+    <nav><div class="logo">MoodTales:Mood Adaptive Interface</div></nav>
+
+    <div id="loginPage">
+        <div class="login-box">
+            <h2>Hello!!</h2>
+            <input id="usernameInput" placeholder="Enter Your Name">
+            <br><br>
+            <button onclick="loginUser()">Start</button>
+        </div>
+    </div>
+
+    <section class="hero" id="generatorPage" style="display:none">
+       
+        <h1>MOODTALES:MOOD ADAPTIVE INTERFACE</h1>
+        <p id="welcomeText"></p>
+        <div class="search-box">
+            <input id="moodInput" placeholder="How are you feeling?">
+            <div id="voiceBtnHero" class="mic-btn" onclick="toggleVoice()">🎤</div>
+            <button class="search-btn" onclick="generateStory()">➜</button>
+        </div>
+        <div class="slider-container">
+            <span style="font-size: 12px; opacity: 0.6; margin-right: 15px;">Story Length</span>
+            <input type="range" min="50" max="500" value="100" class="slider" id="range">
+            <div class="value" id="heroVal">100</div>
+        </div>
+        <div class="suggestions">
+            <div class="chip" onclick="fillText('Happy 😊')">Happy 😊</div>
+            <div class="chip" onclick="fillText('Sad 😔')">Sad 😔</div>
+            <div class="chip" onclick="fillText('Excited 🤩')">Excited 🤩</div>
+            <div class="chip" onclick="fillText('Mysterious 🌙')">Mysterious 🌙</div>
+        </div>
+    </section>
+
+    <div id="chatPage" style="display:none">
+        <div id="chatHistory"></div>
+        <div class="chat-input-wrapper">
+            <div class="pill-bar">
+                <div id="voiceBtnChat" class="mic-btn" onclick="toggleVoice()">🎤</div>
+                
+                <div class="input-core">
+                    <div class="chat-slider-box">
+                        <span class="mini-label">LEN</span>
+                        <input type="range" min="50" max="500" value="100" class="slider" id="chatRange">
+                        <div class="mini-value" id="chatVal">100</div>
+                    </div>
+                    <input type="text" id="chatInput" placeholder="Tell me what you feel..." onkeypress="handleChatKey(event)">
+                </div>
+
+                <div id="actionBtn" class="action-btn" onclick="sendChat()">
+                    <div id="btnIcon" class="arrow-icon">➤</div> 
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="widget-sidebar">
+        <div class="widget-box" id="time-widget">
+            <div id="clock">00:00:00</div>
+            <div id="date">Loading date...</div>
+        </div>
+        <div class="widget-box" id="weather-widget">
+            <div id="temp">--°C</div>
+            <div id="desc">Fetching weather...</div>
+            <div id="loc" style="font-size: 10px; opacity: 0.6;">Allow location access</div>
+        </div>
+    </div>
+
+    <script>
+        let recognition, isListening = false, isTyping = false, typingTimer, currentAudio = null;
+
+        /* SIDEBAR TOGGLE */
+        function toggleSidebar() {
+            document.getElementById("appSidebar").classList.toggle("open");
+        }
+
+        /* INITIALIZATION */
+        function loginUser() {
+            let name = document.getElementById("usernameInput").value;
+            if (!name.trim()) return alert("Enter your name");
+            document.getElementById("loginPage").style.display = "none";
+            document.getElementById("generatorPage").style.display = "block";
+            localStorage.setItem("moodUser", name);
+            document.getElementById("sideUser").innerText = name; 
+            typeText("welcomeText", "Hello " + name + " 👋", true);
+            initSliders();
+        }
+
+        document.getElementById("usernameInput").addEventListener("keypress", (e) => {
+            if (e.key === "Enter") loginUser();
+        });
+
+        function generateStory() {
+            let mood = document.getElementById("moodInput").value;
+            if (!mood.trim()) return alert("Tell me your mood first!");
+            saveMoodToCache(mood);
+            document.getElementById("generatorPage").style.display = "none";
+            document.getElementById("chatPage").style.display = "flex";
+            processUserMessage(mood);
+        }
+
+        document.getElementById("moodInput").addEventListener("keydown", (e) => {
+            if (e.key === "Enter") generateStory();
+        });
+
+        function initSliders() {
+            const r1 = document.getElementById("range"), r2 = document.getElementById("chatRange");
+            const v1 = document.getElementById("heroVal"), v2 = document.getElementById("chatVal");
+            const sync = (val) => { r1.value = r2.value = val; v1.innerText = v2.innerText = val; };
+            r1.oninput = (e) => sync(e.target.value);
+            r2.oninput = (e) => sync(e.target.value);
+        }
+
+        /* CHAT PROCESSING */
+        async function processUserMessage(text) {
+            const history = document.getElementById("chatHistory");
+            const length = document.getElementById("chatRange").value;
+
+            const uDiv = document.createElement("div");
+            uDiv.className = "message user-msg";
+            uDiv.innerText = text;
+            history.appendChild(uDiv);
+
+            const aiId = "ai_" + Date.now();
+            const aiDiv = document.createElement("div");
+            aiDiv.className = "message ai-msg";
+            aiDiv.id = aiId;
+            aiDiv.innerText = "Analyzing mood...";
+            history.appendChild(aiDiv);
+            history.scrollTop = history.scrollHeight;
+
+            try {
+                const res = await fetch('/predict', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ mood: text, story_length: length })
+                });
+                const data = await res.json();
+                aiDiv.innerText = "";
+                if (data.story) {
+                    typeText(aiId, `[Mood: ${data.sentiment}]\n\n${data.story}`, false, () => {
+                        addNarrateButton(aiId, data.story);
+                    });
+                } else {
+                    aiDiv.innerText = "Error generating story.";
+                }
+            } catch (e) {
+                aiDiv.innerText = "Connection lost. Check Flask.";
+            }
+        }
+
+        /* TYPING EFFECT */
+        function typeText(id, text, simple = false, callback = null) {
+            let i = 0;
+            const el = document.getElementById(id);
+            const history = document.getElementById("chatHistory");
+            if (!simple) { isTyping = true; toggleUI(true); }
+
+            function typing() {
+                if (i < text.length && (simple || isTyping)) {
+                    el.innerHTML += text.charAt(i++);
+                    if (history) history.scrollTop = history.scrollHeight;
+                    typingTimer = setTimeout(typing, 30);
+                } else if (!simple) { 
+                    finishTyping(callback); 
+                }
+            }
+            typing();
+        }
+
+        function finishTyping(callback) {
+            clearTimeout(typingTimer);
+            isTyping = false;
+            toggleUI(false);
+            if (callback) callback();
+        }
+
+        /* NARRATION LOGIC */
+        function addNarrateButton(containerId, storyText) {
+            const container = document.getElementById(containerId);
+            const btn = document.createElement("button");
+            btn.innerHTML = "<span>🔊</span> Narrate Story";
+            btn.className = "narrate-btn";
+            btn.onclick = () => playNarration(storyText, btn);
+            container.appendChild(btn);
+        }
+
+        async function playNarration(text, btn) {
+            if (currentAudio) {
+                currentAudio.pause();
+                if (btn.innerText.includes("Stop")) {
+                    btn.innerHTML = "<span>🔊</span> Narrate Story";
+                    currentAudio = null;
+                    return;
+                }
+            }
+
+            btn.innerText = "⌛ Preparing...";
+            btn.disabled = true;
+
+            try {
+                const response = await fetch('/narrate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ story: text })
+                });
+
+                if (!response.ok) throw new Error("Narration failed");
+
+                const blob = await response.blob();
+                const url = URL.createObjectURL(blob);
+                currentAudio = new Audio(url);
+                
+                btn.disabled = false;
+                btn.innerHTML = "<span>⏹</span> Stop Narration";
+                currentAudio.play();
+
+                currentAudio.onended = () => {
+                    btn.innerHTML = "<span>🔊</span> Narrate Story";
+                    currentAudio = null;
+                };
+            } catch (err) {
+                btn.innerText = "⚠️ Error";
+                btn.disabled = false;
+            }
+        }
+
+        function toggleUI(typing) {
+            const btn = document.getElementById("actionBtn"), icon = document.getElementById("btnIcon");
+            if (typing) {
+                btn.onclick = () => finishTyping();
+                btn.classList.add("btn-stop");
+                icon.innerHTML = '<div class="stop-square"></div>';
+            } else {
+                btn.onclick = sendChat;
+                btn.classList.remove("btn-stop");
+                icon.innerHTML = '➤';
+            }
+        }
+
+        function sendChat() {
+            const inp = document.getElementById("chatInput");
+            const text = inp.value.trim();
+            if (text) {
+                saveMoodToCache(text); 
+                processUserMessage(text);
+                inp.value = "";
+            }
+        }
+
+        function handleChatKey(e) { if (e.key === "Enter") sendChat(); }
+        function fillText(val) { document.getElementById("moodInput").value = val; }
+
+        /* CURSOR & BACKGROUND */
+        const glow = document.querySelector(".cursor-glow");
+        document.addEventListener("mousemove", (e) => {
+            glow.style.left = e.clientX + "px"; glow.style.top = e.clientY + "px"; glow.style.opacity = "1";
+        });
+
+        const canvas = document.getElementById("particles"), ctx = canvas.getContext("2d");
+        canvas.width = window.innerWidth; canvas.height = window.innerHeight;
+        let pArr = [];
+        for(let i=0; i<60; i++) pArr.push({x:Math.random()*canvas.width, y:Math.random()*canvas.height, r:Math.random()*2, dx:(Math.random()-0.5)*0.5, dy:(Math.random()-0.5)*0.5});
+        function anim() {
+            ctx.clearRect(0,0,canvas.width,canvas.height);
+            pArr.forEach(p => {
+                ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI*2); ctx.fillStyle="rgba(255,255,255,0.3)"; ctx.fill();
+                p.x+=p.dx; p.y+=p.dy;
+                if(p.x<0||p.x>canvas.width) p.dx*=-1; if(p.y<0||p.y>canvas.height) p.dy*=-1;
+            });
+            requestAnimationFrame(anim);
+        }
+
+        /* VOICE */
+        function toggleVoice() {
+            if (!recognition) {
+                const SR = window.webkitSpeechRecognition || window.SpeechRecognition;
+                recognition = new SR();
+                recognition.continuous = true; 
+                recognition.interimResults = true;
+                recognition.onstart = () => {
+                    const bId = document.getElementById("chatPage").style.display === "flex" ? "voiceBtnChat" : "voiceBtnHero";
+                    document.getElementById(bId).classList.add("mic-active");
+                    isListening = true;
+                };
+                recognition.onend = () => {
+                    document.querySelectorAll(".mic-btn").forEach(btn => btn.classList.remove("mic-active"));
+                    isListening = false;
+                };
+                recognition.onresult = (e) => {
+                    let t = ""; 
+                    for(let i = e.resultIndex; i < e.results.length; i++) t += e.results[i][0].transcript;
+                    const iId = document.getElementById("chatPage").style.display === "flex" ? "chatInput" : "moodInput";
+                    document.getElementById(iId).value = t;
+                    document.getElementById("liveVoiceLog").innerText = t;
+                    document.getElementById("appSidebar").classList.add("open");
+                };
+            }
+            isListening ? recognition.stop() : recognition.start();
+        }
+
+        /* CACHE & CLOCK */
+        function saveMoodToCache(text) {
+            let history = JSON.parse(localStorage.getItem("moodHistory")) || [];
+            history.push(text);
+            localStorage.setItem("moodHistory", JSON.stringify(history));
+            const log = document.getElementById("moodHistoryLog");
+            if(log.innerText.includes("No moods")) log.innerHTML = "";
+            const div = document.createElement("div");
+            div.className = "mood-tag";
+            div.innerText = text;
+            log.prepend(div);
+        }
+
+        function loadCache() {
+            const savedName = localStorage.getItem("moodUser");
+            const savedMoods = JSON.parse(localStorage.getItem("moodHistory")) || [];
+            if (savedName) document.getElementById("sideUser").innerText = savedName;
+            const log = document.getElementById("moodHistoryLog");
+            log.innerHTML = ""; 
+            savedMoods.forEach(m => {
+                const div = document.createElement("div");
+                div.className = "mood-tag";
+                div.innerText = m;
+                log.prepend(div);
+            });
+        }
+
+        function updateClock() {
+            const now = new Date();
+            document.getElementById('clock').innerText = now.toLocaleTimeString([], {hour12:false});
+            document.getElementById('date').innerText = now.toLocaleDateString(undefined, {weekday:'short', month:'short', day:'numeric'});
+        }
+
+        async function getLiveWeather() {
+            try {
+                const locRes = await fetch("http://ip-api.com/json/");
+                const locData = await locRes.json();
+                const city = locData.city || "Unknown";
+                const weatherRes = await fetch(`https://api.openweathermap.org/data/2.5/weather?q=${city}&appid=c87ed51b805675cdc2eababdb7cc294b&units=metric`);
+                const w = await weatherRes.json();
+                document.getElementById('temp').innerText = `${Math.round(w.main.temp)}°C`;
+                document.getElementById('desc').innerText = w.weather[0].description;
+                document.getElementById('loc').innerText = `${city}, ${locData.country}`;
+            } catch (e) { document.getElementById('desc').innerText = "Weather unavailable"; }
+        }
+
+        function goHome() {
+            document.getElementById("chatPage").style.display = "none";
+            document.getElementById("generatorPage").style.display = "block";
+            toggleSidebar();
+        }
+
+        window.onload = () => {
+            loadCache();
+            anim();
+            setInterval(updateClock, 1000);
+            updateClock();
+            getLiveWeather();
+            let i = 0, txt = "Enter Your Name...";
+            function type() { if(i <= txt.length) { document.getElementById("usernameInput").placeholder = txt.substring(0, i++); setTimeout(type, 70); } }
+            type();
+        };
+        function clearMoodHistory() {
+    if (confirm("Are you sure you want to delete your mood history?")) {
+        // Remove from storage
+        localStorage.removeItem("moodHistory");
+        
+        // Update the UI
+        const log = document.getElementById("moodHistoryLog");
+        log.innerHTML = "No moods yet.";
+        
+        // Optional: Close sidebar for a clean feel
+        // toggleSidebar(); 
+    }
+}
+    </script>
+</body>
+</html>

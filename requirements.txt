@@ -1,0 +1,13 @@
+from flask import Flask, request, jsonify, render_template, send_file
+from flask_cors import CORS
+import joblib
+import re
+import os
+import ssl
+import nltk
+import requests
+import time
+import io
+from gtts import gTTS
+from nltk.corpus import stopwords
+from nltk.stem import WordNetLemmatizer
